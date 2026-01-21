@@ -7,17 +7,25 @@
     "@types/bun": "latest",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.9",
+    "@types/ws": "^8.18.1",
+    "drizzle-kit": "^0.31.8",
     "tsx": "^4.21.0"
   },
   "scripts": {
     "dev": "bun tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "peerDependencies": {
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "express": "^5.2.1"
+    "@neondatabase/serverless": "^1.0.2",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.1",
+    "express": "^5.2.1",
+    "ws": "^8.19.0"
   }
 }
