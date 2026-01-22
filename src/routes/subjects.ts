@@ -5,13 +5,24 @@ import { db } from "../db";
 
 const router = express.Router();
 
+const MAX_LIMIT = 100;
+
 //Get all subjects with optional department filter and pagination
 router.get("/", async (req, res) => {
   try {
     const { search, department, page = 1, limit = 10 } = req.query;
 
-    const currentPage = Math.max(1, +page);
-    const limitPerPage = Math.max(1, +limit);
+    const pageValue = Array.isArray(page) ? page[0] : page;
+    const limitValue = Array.isArray(limit) ? limit[0] : limit;
+
+    const parsedPage = parseInt(pageValue as string, 10);
+    const parsedLimit = parseInt(limitValue as string, 10);
+
+    const currentPage = Math.max(1, Number.isNaN(parsedPage) ? 1 : parsedPage);
+    const limitPerPage = Math.min(
+      MAX_LIMIT,
+      Math.max(1, Number.isNaN(parsedLimit) ? 1 : parsedLimit),
+    );
 
     const offset = (currentPage - 1) * limitPerPage;
 
@@ -28,7 +39,9 @@ router.get("/", async (req, res) => {
     }
     //if department query exists, filter by departmentId
     if (department) {
-      filterConditions.push(ilike(departments.name, `%${department}%`));
+      const deptPattern = `%${String(department).replace(/[%_]/g, "\\$&")}%`;
+
+      filterConditions.push(ilike(departments.name, deptPattern));
     }
 
     //Combine all filters using AND if any filters exist
