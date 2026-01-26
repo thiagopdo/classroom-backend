@@ -1,12 +1,18 @@
-import arcjet, { shield, detectBot, slidingWindow } from "@arcjet/node";
+import arcjet, { shield, detectBot } from "@arcjet/node";
 import { env } from "process";
 
-if (!process.env.ARCJET_KEY && process.env.NODE_ENV !== "test") {
+
+const key =
+  env.ARCJET_KEY ?? (env.NODE_ENV === "test" ? "test-key" : undefined);
+
+if (!key) {
   throw new Error("ARCJET_KEY is not defined in environment variables");
 }
 
+// Singleton Arcjet client with base rules (shield and bot detection)
+// Rate limiting is applied per-route using aj.withRule() in route handlers
 const aj = arcjet({
-  key: env.ARCJET_KEY!, // Get your site key from https://app.arcjet.com
+  key, // Get your site key from https://app.arcjet.com
   rules: [
     shield({ mode: "LIVE" }),
 
@@ -16,11 +22,6 @@ const aj = arcjet({
         "CATEGORY:SEARCH_ENGINE", // Google, Bing, etc
         "CATEGORY:PREVIEW",
       ],
-    }),
-    slidingWindow({
-      mode: "LIVE",
-      interval: "2s",
-      max: 5,
     }),
   ],
 });

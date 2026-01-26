@@ -2,13 +2,14 @@ import { and, desc, eq, getTableColumns, ilike, or, sql } from "drizzle-orm";
 import express from "express";
 import { departments, subjects } from "../db/schema";
 import { db } from "../db";
+import { createRateLimitMiddleware } from "../middleware/rateLimit";
 
 const router = express.Router();
 
 const MAX_LIMIT = 100;
 
 //Get all subjects with optional department filter and pagination
-router.get("/", async (req, res) => {
+router.get("/", createRateLimitMiddleware(), async (req, res) => {
   try {
     const { search, department, page = 1, limit = 10 } = req.query;
 

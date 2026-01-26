@@ -1,7 +1,9 @@
-import { ArcjetNodeRequest, slidingWindow } from "@arcjet/node";
+import { ArcjetNodeRequest } from "@arcjet/node";
 import aj from "../config/arcjet.js";
 import { Response, Request, NextFunction } from "express";
 
+// Simplified security middleware - only handles shield and bot detection
+// Rate limiting is now applied per-route in individual route handlers
 const securityMiddleware = async (
   req: Request,
   res: Response,
@@ -10,49 +12,16 @@ const securityMiddleware = async (
   if (process.env.NODE_ENV === "test") return next();
 
   try {
-    const role: RateLimitRole = req.user?.role ?? "guest";
-
-    let limit: number;
-    let message: string;
-
-    switch (role) {
-      case "admin":
-        limit = 20;
-        message = "Admin request limit exceeded (20 per minute)";
-        break;
-      case "teacher":
-        limit = 20;
-        message = "Teacher request limit exceeded";
-        break;
-      case "student":
-        limit = 10;
-        message =
-          "Student request limit exceeded (10 per minute). Please wait.";
-        break;
-      default:
-        limit = 5;
-        message =
-          "Guest request limit exceeded (5 per minute). Please Sign up for higher limit.";
-    }
-
-    const client = aj.withRule(
-      slidingWindow({
-        mode: "LIVE",
-        interval: "1m",
-        max: limit,
-      }),
-    );
-
-    const arcjectRequest: ArcjetNodeRequest = {
+    const arcjetRequest: ArcjetNodeRequest = {
       headers: req.headers,
       method: req.method,
       url: req.originalUrl ?? req.url,
       socket: {
-        remoteAddress: req.socket.remoteAddress ?? req.ip ?? "0.0.0.0",
+        remoteAddress: req.socket.remoteAddress ?? "0.0.0.0",
       },
     };
 
-    const decision = await client.protect(arcjectRequest);
+    const decision = await aj.protect(arcjetRequest);
 
     if (decision.isDenied() && decision.reason.isBot()) {
       return res
@@ -65,10 +34,6 @@ const securityMiddleware = async (
         error: "Forbidden",
         message: "Request blocked by security policy",
       });
-    }
-
-    if (decision.isDenied() && decision.reason.isRateLimit()) {
-      return res.status(403).json({ error: "Forbidden", message });
     }
 
     next();
