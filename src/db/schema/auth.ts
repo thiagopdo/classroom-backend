@@ -1,109 +1,114 @@
 import { relations } from "drizzle-orm";
 import {
-  integer,
+  boolean,
+  index,
   pgEnum,
   pgTable,
   text,
   timestamp,
-  varchar,
   uniqueIndex,
-  index,
 } from "drizzle-orm/pg-core";
 
 const timestamps = {
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
-    .notNull()
     .defaultNow()
-    .$onUpdate(() => new Date()),
+    .$onUpdate(() => new Date())
+    .notNull(),
 };
 
 export const roleEnum = pgEnum("role", ["student", "teacher", "admin"]);
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
-  name: varchar("name", { length: 255 }),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  emailVerified: timestamp("email_verified").notNull(),
-  image: varchar("image", { length: 1024 }),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  emailVerified: boolean("email_verified").notNull(),
+  image: text("image"),
   role: roleEnum("role").notNull().default("student"),
   imageCldPubId: text("image_cld_pub_id"),
+
   ...timestamps,
 });
-
-export const account = pgTable(
-  "account",
-  {
-    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    provider: varchar("provider", { length: 255 }).notNull(),
-    providerAccountId: varchar("provider_account_id", {
-      length: 255,
-    }).notNull(),
-    refresh_token: text("refresh_token"),
-    access_token: text("access_token"),
-    expires_at: integer("expires_at"),
-    token_type: varchar("token_type", { length: 255 }),
-    scope: varchar("scope", { length: 255 }),
-    id_token: text("id_token"),
-    session_state: varchar("session_state", { length: 255 }),
-    ...timestamps,
-  },
-  (table) => ({
-    provider_provider_account_unique: uniqueIndex(
-      "account_provider_provider_account_id",
-    ).on(table.provider, table.providerAccountId),
-    user_id_index: index("account_user_id_idx").on(table.userId),
-  }),
-);
 
 export const session = pgTable(
   "session",
   {
-    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-    sessionToken: varchar("session_token", { length: 255 }).notNull().unique(),
+    id: text("id").primaryKey(),
     userId: text("user_id")
       .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    expires: timestamp("expires").notNull(),
+      .references(() => user.id),
+    token: text("token").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+
     ...timestamps,
   },
   (table) => ({
-    user_id_index: index("session_user_id_idx").on(table.userId),
+    userIdIdx: index("session_user_id_idx").on(table.userId),
+    tokenUnique: uniqueIndex("session_token_unique").on(table.token),
+  }),
+);
+
+export const account = pgTable(
+  "account",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at"),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+    scope: text("scope"),
+    idToken: text("id_token"),
+    password: text("password"),
+
+    ...timestamps,
+  },
+  (table) => ({
+    userIdIdx: index("account_user_id_idx").on(table.userId),
+    accountUnique: uniqueIndex("account_provider_account_unique").on(
+      table.providerId,
+      table.accountId,
+    ),
   }),
 );
 
 export const verification = pgTable(
   "verification",
   {
-    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-    identifier: varchar("identifier", { length: 255 }).notNull(),
-    token: varchar("token", { length: 255 }).notNull().unique(),
-    expires: timestamp("expires").notNull(),
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+
     ...timestamps,
   },
   (table) => ({
-    identifier_index: index("verification_identifier_idx").on(table.identifier),
+    identifierIdx: index("verification_identifier_idx").on(table.identifier),
   }),
 );
 
-export const userRelations = relations(user, ({ many }) => ({
-  accounts: many(account),
+export const usersRelations = relations(user, ({ many }) => ({
   sessions: many(session),
+  accounts: many(account),
 }));
 
-export const accountRelations = relations(account, ({ one }) => ({
+export const sessionsRelations = relations(session, ({ one }) => ({
   user: one(user, {
-    fields: [account.userId],
+    fields: [session.userId],
     references: [user.id],
   }),
 }));
 
-export const sessionRelations = relations(session, ({ one }) => ({
+export const accountsRelations = relations(account, ({ one }) => ({
   user: one(user, {
-    fields: [session.userId],
+    fields: [account.userId],
     references: [user.id],
   }),
 }));
@@ -111,11 +116,11 @@ export const sessionRelations = relations(session, ({ one }) => ({
 export type User = typeof user.$inferSelect;
 export type NewUser = typeof user.$inferInsert;
 
-export type Account = typeof account.$inferSelect;
-export type NewAccount = typeof account.$inferInsert;
-
 export type Session = typeof session.$inferSelect;
 export type NewSession = typeof session.$inferInsert;
+
+export type Account = typeof account.$inferSelect;
+export type NewAccount = typeof account.$inferInsert;
 
 export type Verification = typeof verification.$inferSelect;
 export type NewVerification = typeof verification.$inferInsert;

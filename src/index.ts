@@ -1,18 +1,33 @@
+import AgentAPI from "apminsight";
+AgentAPI.config();
+
 import express from "express";
-import subjectsRouter from "./routes/subjects";
 import cors from "cors";
+import { toNodeHandler } from "better-auth/node";
+import subjectsRouter from "./routes/subjects";
 import securityMiddleware from "./middleware/security";
+import { auth } from "./lib/auth";
 
 const app = express();
 const PORT = 8000;
 
+if (!process.env.FRONTEND_URL)
+  throw new Error("FRONTEND_URL is not defined in environment variables");
+
+app.use((req, res, next) => {
+  console.log(`[DEBUG] Incoming request: ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: process.env.FRONTEND_URL,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   }),
 );
+
+app.all("/api/auth/*splat", toNodeHandler(auth));
 
 app.use(express.json());
 
